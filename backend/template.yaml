@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  budget-buddy-backend
+
+  Sample SAM Template for budget-buddy-backend
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 30
+    Environment:
+      Variables:
+        STATEMENTS_TABLE: !Ref StatementsTable
+        S3_BUCKET: !Ref StatementsBucket
+
+Resources:
+  # S3 Bucket for storing PDF statements
+  StatementsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "budget-buddy-statements-${AWS::AccountId}-${AWS::Region}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: [GET, PUT, POST, DELETE]
+            AllowedOrigins: ["*"]
+            MaxAge: 3000
+
+  # DynamoDB table for storing statement metadata and processed data
+  StatementsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "budget-buddy-statements-${AWS::StackName}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: jobId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: jobId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # API Gateway for handling HTTP requests
+  BudgetBuddyAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref AWS::StackName
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  # Lambda function for handling API requests (presigned URLs, listing statements, etc.)
+  BudgetBuddyStatementAPI:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/budget-buddy-api/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          STATEMENTS_TABLE: !Ref StatementsTable
+          S3_BUCKET: !Ref StatementsBucket
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StatementsTable
+        - S3CrudPolicy:
+            BucketName: !Ref StatementsBucket
+      Events:
+        # Generate presigned URL for file upload
+        GeneratePresignedUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BudgetBuddyAPI
+            Path: /statements/upload-url
+            Method: POST
+        # List all statements for a user
+        ListStatements:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BudgetBuddyAPI
+            Path: /statements
+            Method: GET
+        # Get specific statement by job ID
+        GetStatement:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BudgetBuddyAPI
+            Path: /statements/{jobId}
+            Method: GET
+
+  # Lambda function for processing PDFs (triggered by S3)
+  StatementProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/statement-processor/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Timeout: 300
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          STATEMENTS_TABLE: !Ref StatementsTable
+          S3_BUCKET: !Ref StatementsBucket
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StatementsTable
+        - S3CrudPolicy:
+            BucketName: !Ref StatementsBucket
+
+Outputs:
+  # API Gateway endpoint
+  BudgetBuddyAPI:
+    Description: "API Gateway endpoint URL for Budget Buddy"
+    Value: !Sub "https://${BudgetBuddyAPI}.execute-api.${AWS::Region}.amazonaws.com/${AWS::StackName}/"
+
+  # S3 Bucket name
+  StatementsBucketName:
+    Description: "S3 Bucket for storing PDF statements"
+    Value: !Ref StatementsBucket
+
+  # DynamoDB Table name
+  StatementsTableName:
+    Description: "DynamoDB Table for statement metadata"
+    Value: !Ref StatementsTable
+
+  # Lambda Function ARNs
+  StatementAPIFunction:
+    Description: "Statement API Lambda Function ARN"
+    Value: !GetAtt BudgetBuddyStatementAPI.Arn
+
+  StatementProcessorFunction:
+    Description: "Statement Processor Lambda Function ARN"
+    Value: !GetAtt StatementProcessorFunction.Arn
