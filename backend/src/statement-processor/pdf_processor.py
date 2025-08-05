@@ -11,24 +11,25 @@ def process_pdf(file_path):
             print(f"PDF opened successfully. Number of pages: {len(pdf.pages)}")
             
             raw_text = ""
+            bank = ""
             for page_num, page in enumerate(pdf.pages):
                 print(f"Processing page {page_num + 1}")
 
-                bank = ""
                 try:
                     text = page.extract_text()
                     raw_text += text
                     if text:
                         print(f"Page {page_num + 1} text length: {len(text)} characters")
-                        if "chase.com" in text.lower() or "CChhaassee" in text.lower():
-                            bank = "chase"
-                        else:
-                            bank = "unknown"
                     else:
                         print(f"No text extracted from page {page_num + 1}")
                 except Exception as e:
                     print(f"Error extracting text from page {page_num + 1}: {e}")
                     continue
+
+            if "chase.com" in raw_text.lower() or "CChhaassee" in raw_text.lower():
+                bank = "chase"
+            else:
+                bank = "unknown"
             
             return {
                 "bank": bank,
