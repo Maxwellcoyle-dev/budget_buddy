@@ -20,7 +20,7 @@ def process_pdf(file_path):
                     raw_text += text
                     if text:
                         print(f"Page {page_num + 1} text length: {len(text)} characters")
-                        if "chase.com" in text.lower() or "chase" in text.lower():
+                        if "chase.com" in text.lower() or "CChhaassee" in text.lower():
                             bank = "chase"
                         else:
                             bank = "unknown"
