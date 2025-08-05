@@ -11,6 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      - name: Go to backend directory
+        run: cd backend
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -24,6 +28,9 @@ jobs:
     needs: test # 🔐 Only runs if 'test' job succeeds
 
     steps:
+      - name: Go to backend directory
+        run: cd backend
+
       - name: Checkout code
         uses: actions/checkout@v4
 
