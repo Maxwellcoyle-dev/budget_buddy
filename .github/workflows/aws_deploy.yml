@@ -11,12 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Go to backend directory
         run: cd backend
-
-      - name: Checkout code
-        uses: actions/checkout@v4
 
       - name: Run Sam validation
         run: sam validate
@@ -28,11 +27,11 @@ jobs:
     needs: test # 🔐 Only runs if 'test' job succeeds
 
     steps:
-      - name: Go to backend directory
-        run: cd backend
-
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Go to backend directory
+        run: cd backend
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
