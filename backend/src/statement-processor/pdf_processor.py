@@ -10,24 +10,37 @@ def process_pdf(file_path):
         with pdfplumber.open(file_path) as pdf:
             print(f"PDF opened successfully. Number of pages: {len(pdf.pages)}")
             
-            # Extract all text content from all pages
-            all_text = ""
-            
+            raw_text = ""
             for page_num, page in enumerate(pdf.pages):
                 print(f"Processing page {page_num + 1}")
+
+                bank = ""
                 try:
                     text = page.extract_text()
+                    raw_text += text
                     if text:
                         print(f"Page {page_num + 1} text length: {len(text)} characters")
-                        print(f"=== PAGE {page_num + 1} CONTENT ===")
-                        print(text);
+                        if "chase.com" in text.lower() or "chase" in text.lower():
+                            bank = "chase"
+                        else:
+                            bank = "unknown"
                     else:
                         print(f"No text extracted from page {page_num + 1}")
                 except Exception as e:
                     print(f"Error extracting text from page {page_num + 1}: {e}")
                     continue
             
-            return all_text
+            return {
+                "bank": bank,
+                "raw_text": raw_text
+            }
+
+            print(f"Bank: {bank}")
+            print(f"Raw text: {raw_text}")
+
+
+
+
             
     except Exception as e:
         print(f"Error processing PDF: {str(e)}")
